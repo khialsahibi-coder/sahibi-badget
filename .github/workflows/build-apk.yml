@@ -30,7 +30,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          cache: 'pip'
+          # No requirements.txt - buildozer uses buildozer.spec for dependencies
+          cache: ''
 
       - name: Install system dependencies
         run: |
@@ -92,7 +93,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          cache: 'pip'
+          # No requirements.txt - buildozer uses buildozer.spec for dependencies
+          cache: ''
 
       - name: Install system dependencies
         run: |
