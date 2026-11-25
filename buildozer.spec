@@ -1,4 +1,4 @@
-[app]
+ok[app]
 
 # (str) Title of your application
 title = Sahibi Budget App
@@ -21,8 +21,9 @@ version = 1.0.0
 # (list) Application requirements - PINNED for buildozer compatibility
 # python3==3.10.* required (3.11+ breaks buildozer)
 # cython==0.29.36 required (newer breaks buildozer)
-requirements = python3==3.10.*,kivy,kivymd
-
+requirements = python3,kivy==2.3.0,kivymd==1.2.0,pillow
+android.archs = arm64-v8a
+log_level = 2
 # (str) Supported orientation
 orientation = portrait
 
