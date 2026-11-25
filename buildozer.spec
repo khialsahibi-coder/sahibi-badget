@@ -37,9 +37,9 @@ fullscreen = 0
 android.permissions = INTERNET,ACCESS_NETWORK_STATE,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE
 
 # (int) Android API to use
+android.accept_sdk_license = True
 android.api = 33
 android.build_tools_version = 33.0.2
-
 # (int) Minimum API required
 android.minapi = 21
 
