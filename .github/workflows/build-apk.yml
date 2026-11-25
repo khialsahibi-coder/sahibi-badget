@@ -26,32 +26,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.10 (REQUIRED for buildozer)
+      - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          # No requirements.txt - buildozer uses buildozer.spec for dependencies
+          # No pip cache - buildozer uses buildozer.spec for dependencies
           cache: ''
 
       - name: Install system dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
+          sudo apt-get update -y
+          sudo apt-get install -y --no-install-recommends \
             git zip unzip openjdk-17-jdk python3-pip autoconf libtool \
             pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev \
-            libtinfo5 cmake libffi-dev libssl-dev \
-            libgles2-mesa-dev libgbm-dev libdrm-dev \
-            libx11-dev libxext-dev libxfixes-dev libxi-dev \
-            libxrender-dev libxrandr-dev libxinerama-dev \
-            libxcursor-dev libxcomposite-dev libxdamage-dev \
-            libasound2-dev libpulse-dev libdbus-1-dev \
-            libudev-dev libwayland-dev libxkbcommon-dev \
-            freeglut3-dev libgl1-mesa-dev libglu1-mesa-dev
+            libtinfo5 cmake libffi-dev libssl-dev
 
       - name: Install buildozer with pinned dependencies
         run: |
           pip install --upgrade pip setuptools wheel
-          # CRITICAL: cython 0.29.36 - newer versions break buildozer
           pip install cython==0.29.36
           pip install buildozer
 
@@ -98,8 +90,8 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
+          sudo apt-get update -y
+          sudo apt-get install -y --no-install-recommends \
             git zip unzip openjdk-17-jdk python3-pip autoconf libtool \
             pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev \
             libtinfo5 cmake libffi-dev libssl-dev
