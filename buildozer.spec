@@ -22,8 +22,9 @@ version = 1.0.0
 # python3==3.10.* required (3.11+ breaks buildozer)
 # cython==0.29.36 required (newer breaks buildozer)
 requirements = python3,kivy==2.3.0,kivymd==1.2.0,pillow
+android.api = 33
 android.archs = arm64-v8a
-log_level = 2
+android.accept_sdk_license = True
 # (str) Supported orientation
 orientation = portrait
 
@@ -37,8 +38,6 @@ fullscreen = 0
 # (list) Permissions
 android.permissions = INTERNET,ACCESS_NETWORK_STATE,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE
 
-# (int) Android API to use
-android.accept_sdk_license = True
 android.api = 33
 android.build_tools_version = 33.0.2
 # (int) Minimum API required
@@ -53,8 +52,6 @@ android.ndk_api = 21
 # (bool) Private storage
 android.private_storage = True
 
-# (str) Architecture
-android.archs = arm64-v8a, armeabi-v7a
 
 #
 # Python for android (p4a) specific
