@@ -1,0 +1,12 @@
+# KHSahibi VDownloader - Python Dependencies
+# For buildozer (Python-for-Android)
+
+python3==3.11.*
+kivy==2.3.0
+kivymd==2.0.1
+yt-dlp==2024.12.2
+ffmpeg-patched==2.1.0
+requests==2.32.3
+certifi==2024.12.14
+openssl==3.4.0
+cython==3.0.10
