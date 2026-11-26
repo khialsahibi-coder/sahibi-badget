@@ -1,715 +1,743 @@
-#!/usr/bin/env python
 """
-Sahibi Budget App - Main Entry Point (KivyMD 2.x Compatible)
+Sahibi Budget App
+A modern budget tracker with category dropdown, custom categories and salary tracking.
 """
 
-from kivy.lang import Builder
-from kivymd.app import MDApp
-from kivymd.uix.screen import MDScreen
-from kivymd.uix.boxlayout import MDBoxLayout
-from kivymd.uix.card import MDCard
-from kivymd.uix.list import MDList, TwoLineListItem
-from kivymd.uix.textfield import MDTextField
-from kivymd.uix.button import MDButton, MDButtonText, MDIconButton
-from kivymd.uix.dialog import MDDialog
-from kivymd.uix.label import MDLabel
-from kivymd.uix.toolbar import MDTopAppBar
-from kivymd.uix.scrollview import MDScrollView
-from kivymd.uix.chip import MDChip, MDChipText
-from kivymd.uix.navigationdrawer import (
-    MDNavigationDrawer,
-    MDNavigationDrawerMenu,
-    MDNavigationDrawerItem,
-    MDNavigationDrawerItemText,
-    MDNavigationDrawerItemLeadingIcon,
-)
-from kivy.metrics import dp, sp
-from kivy.properties import StringProperty, NumericProperty, ListProperty
-from kivy.clock import Clock
-from kivy.utils import get_color_from_hex
 import json
 import os
 from datetime import datetime
 
-# Color palette
-PRIMARY_COLOR = "#2C3E50"
-ACCENT_COLOR = "#27AE60"
-EXPENSE_COLOR = "#E74C3C"
-WARNING_COLOR = "#F39C12"
-BACKGROUND_COLOR = "#F8F9FA"
-CARD_COLOR = "#FFFFFF"
-TEXT_PRIMARY = "#2C3E50"
-TEXT_SECONDARY = "#7F8C8D"
-TEXT_ON_PRIMARY = "#FFFFFF"
+from kivy.clock import Clock
+from kivy.lang import Builder
+from kivy.metrics import dp, sp
+from kivy.properties import ListProperty, NumericProperty, StringProperty
+from kivy.utils import get_color_from_hex
+
+from kivymd.app import MDApp
+from kivymd.uix.boxlayout import MDBoxLayout
+from kivymd.uix.button import MDFlatButton, MDIconButton, MDRaisedButton
+from kivymd.uix.card import MDCard
+from kivymd.uix.dialog import MDDialog
+from kivymd.uix.label import MDLabel
+from kivymd.uix.menu import MDDropdownMenu
+from kivymd.uix.screen import MDScreen
+from kivymd.uix.textfield import MDTextField
+from kivymd.uix.toolbar import MDTopAppBar
+
+PRIMARY = "#1E3A5F"
+ACCENT = "#2ECC71"
+DANGER = "#E74C3C"
+WARN = "#F39C12"
+BG = "#F4F6F8"
+CARD = "#FFFFFF"
 
 DEFAULT_CATEGORIES = [
     {"name": "Groceries", "icon": "cart", "color": "#E74C3C"},
     {"name": "Electric", "icon": "flash", "color": "#F39C12"},
-    {"name": "Transport", "icon": "bus", "color": "#3498DB"},
-    {"name": "Entertainment", "icon": "movie", "color": "#9B59B6"},
+    {"name": "Water", "icon": "water", "color": "#3498DB"},
+    {"name": "Transport", "icon": "bus", "color": "#2980B9"},
+    {"name": "Fuel", "icon": "gas-station", "color": "#D35400"},
+    {"name": "Rent", "icon": "home", "color": "#8E44AD"},
+    {"name": "Internet", "icon": "wifi", "color": "#16A085"},
+    {"name": "Phone", "icon": "cellphone", "color": "#2C3E50"},
     {"name": "Healthcare", "icon": "medical-bag", "color": "#E91E63"},
-    {"name": "Education", "icon": "book-open", "color": "#00BCD4"},
+    {"name": "Education", "icon": "school", "color": "#00BCD4"},
     {"name": "Shopping", "icon": "shopping", "color": "#FF5722"},
+    {"name": "Entertainment", "icon": "movie", "color": "#9B59B6"},
+    {"name": "Dining", "icon": "silverware-fork-knife", "color": "#F1C40F"},
     {"name": "Other", "icon": "dots-horizontal", "color": "#95A5A6"},
 ]
 
-KV = '''
-<CategoryChip@MDChip>:
-    MDChipText:
-        id: chip_text
-        text: root.text
-    md_bg_color: root.md_bg_color
-
-<ExpenseItem@TwoLineListItem>:
+KV = """
+<NavRow@OneLineIconListItem>:
     _no_ripple_effect: True
 
-<SalaryDialog@MDBoxLayout>:
-    orientation: "vertical"
-    spacing: dp(15)
-    adaptive_height: True
-    padding: dp(20)
-
-    MDTextField:
-        id: salary_amount
-        hint_text: "Monthly Salary"
-        helper_text: "Enter your monthly income"
-        helper_text_mode: "on_focus"
-        input_filter: "float"
-
-    MDTextField:
-        id: salary_note
-        hint_text: "Note (optional)"
-        helper_text: "e.g., January 2024 salary"
-        helper_text_mode: "on_focus"
-
-<ExpenseDialog@MDBoxLayout>:
-    orientation: "vertical"
-    spacing: dp(15)
-    adaptive_height: True
-    padding: dp(20)
-
-    MDTextField:
-        id: expense_amount
-        hint_text: "Amount"
-        helper_text: "Enter expense amount"
-        helper_text_mode: "on_focus"
-        input_filter: "float"
-
-    MDTextField:
-        id: expense_note
-        hint_text: "Note (optional)"
-        helper_text: "What was this for?"
-        helper_text_mode: "on_focus"
-
-    MDTextField:
-        id: expense_category
-        hint_text: "Category"
-        helper_text: "Tap to select category"
-        helper_text_mode: "on_focus"
-        readonly: True
-        on_focus: if self.focus: app.open_category_dropdown(self)
-
 <MainScreen>:
-    md_bg_color: app.background_color
+    md_bg_color: app.bg_color
 
     MDBoxLayout:
         orientation: "vertical"
 
         MDTopAppBar:
-            id: toolbar
             title: "Sahibi Budget"
-            elevation: 4
-            md_bg_color: app.primary_color
-            right_action_items: [["plus", lambda x: app.show_expense_dialog()], ["cog", lambda x: app.show_settings()]]
-            left_action_items: [["menu", lambda x: app.show_drawer()]]
-
-        MDCard:
-            id: salary_card
-            orientation: "vertical"
-            padding: dp(20)
-            spacing: dp(10)
-            size_hint_y: None
-            height: dp(160)
             elevation: 3
-            radius: [dp(20)]
             md_bg_color: app.primary_color
-            pos_hint: {"center_x": 0.5}
-            size_hint_x: 0.95
-
-            MDBoxLayout:
-                orientation: "horizontal"
-                spacing: dp(15)
-
-                MDIconButton:
-                    icon: "currency-usd"
-                    theme_text_color: "Custom"
-                    text_color: app.text_on_primary
-                    icon_size: dp(32)
-
-                MDBoxLayout:
-                    orientation: "vertical"
-                    spacing: dp(2)
-
-                    MDLabel:
-                        id: salary_label
-                        text: "Monthly Salary"
-                        theme_text_color: "Custom"
-                        text_color: app.text_on_primary
-                        font_size: sp(14)
-                        opacity: 0.9
-
-                    MDLabel:
-                        id: salary_amount_label
-                        text: "$0.00"
-                        theme_text_color: "Custom"
-                        text_color: app.text_on_primary
-                        font_size: sp(28)
-                        bold: True
-
-                    MDLabel:
-                        id: remaining_label
-                        text: "Remaining: $0.00"
-                        theme_text_color: "Custom"
-                        text_color: app.accent_color
-                        font_size: sp(14)
-
-            MDBoxLayout:
-                orientation: "horizontal"
-                spacing: dp(10)
-                padding: [dp(0), dp(10), dp(0), dp(0)]
-
-                MDButton:
-                    style: "filled"
-                    md_bg_color: app.accent_color
-                    on_release: app.show_salary_dialog()
-                    size_hint_x: 0.5
-                    MDButtonText:
-                        text: "Add Salary"
-
-                MDButton:
-                    style: "filled"
-                    md_bg_color: app.warning_color
-                    on_release: app.reset_month()
-                    size_hint_x: 0.5
-                    MDButtonText:
-                        text: "Reset Month"
-
-        MDCard:
-            id: filter_card
-            orientation: "vertical"
-            padding: dp(15)
-            spacing: dp(10)
-            size_hint_y: None
-            height: dp(100)
-            elevation: 1
-            radius: [dp(15)]
-            md_bg_color: app.card_color
-            pos_hint: {"center_x": 0.5}
-            size_hint_x: 0.95
-
-            MDLabel:
-                text: "Filter by Category"
-                theme_text_color: "Primary"
-                font_size: sp(14)
-                bold: True
-
-            MDScrollView:
-                do_scroll_x: True
-                do_scroll_y: False
-
-                MDBoxLayout:
-                    id: category_chips_container
-                    orientation: "horizontal"
-                    spacing: dp(8)
-                    padding: [dp(5), dp(0), dp(5), dp(0)]
-                    size_hint_x: None
-                    width: self.minimum_width
-                    adaptive_height: True
-
-        MDLabel:
-            id: expenses_title
-            text: "Expenses"
-            theme_text_color: "Primary"
-            font_size: sp(18)
-            bold: True
-            padding: [dp(20), dp(15), dp(20), dp(5)]
-            size_hint_y: None
-            height: dp(40)
+            left_action_items: [["dots-vertical", lambda x: app.open_menu()]]
 
         MDScrollView:
-            id: expenses_scroll
             do_scroll_x: False
-            do_scroll_y: True
 
-            MDList:
-                id: expenses_list
-                padding: [dp(15), dp(0), dp(15), dp(20)]
-                spacing: dp(10)
+            MDBoxLayout:
+                orientation: "vertical"
+                spacing: dp(12)
+                padding: dp(12)
+                size_hint_y: None
+                height: self.minimum_height
 
-<NavigationDrawer@MDNavigationDrawer>:
-    id: nav_drawer
+                # ---- Salary card ----
+                MDCard:
+                    size_hint_y: None
+                    height: dp(150)
+                    radius: [dp(18)]
+                    elevation: 3
+                    md_bg_color: app.primary_color
+                    padding: dp(16)
+                    orientation: "vertical"
 
-    MDNavigationDrawerMenu:
-        MDNavigationDrawerItem:
-            on_release: app.close_drawer()
-            MDNavigationDrawerItemLeadingIcon:
-                icon: "home"
-            MDNavigationDrawerItemText:
-                text: "Dashboard"
+                    MDBoxLayout:
+                        orientation: "horizontal"
+                        spacing: dp(12)
+                        size_hint_y: None
+                        height: dp(70)
 
-        MDNavigationDrawerItem:
-            on_release: app.show_categories_manager()
-            MDNavigationDrawerItemLeadingIcon:
-                icon: "category"
-            MDNavigationDrawerItemText:
-                text: "Manage Categories"
+                        MDIconButton:
+                            icon: "wallet"
+                            icon_size: dp(34)
+                            theme_text_color: "Custom"
+                            text_color: 1, 1, 1, 1
+                            pos_hint: {"center_y": .5}
+                            on_release: app.show_salary_dialog()
 
-        MDNavigationDrawerItem:
-            on_release: app.show_statistics()
-            MDNavigationDrawerItemLeadingIcon:
-                icon: "chart-pie"
-            MDNavigationDrawerItemText:
-                text: "Statistics"
+                        MDBoxLayout:
+                            orientation: "vertical"
+                            spacing: dp(2)
 
-        MDNavigationDrawerItem:
-            on_release: app.toggle_theme()
-            MDNavigationDrawerItemLeadingIcon:
-                icon: "theme-light-dark"
-            MDNavigationDrawerItemText:
-                text: "Toggle Theme"
-'''
+                            MDLabel:
+                                text: "MONTHLY SALARY"
+                                font_style: "Overline"
+                                theme_text_color: "Custom"
+                                text_color: 1, 1, 1, .7
+                                size_hint_y: None
+                                height: dp(18)
 
+                            MDLabel:
+                                id: salary_label
+                                text: "$0.00"
+                                font_style: "H4"
+                                bold: True
+                                theme_text_color: "Custom"
+                                text_color: 1, 1, 1, 1
+                                size_hint_y: None
+                                height: dp(40)
 
-class CategoryChip(MDChip):
-    pass
+                    MDBoxLayout:
+                        orientation: "horizontal"
+                        spacing: dp(8)
 
-class ExpenseItem(TwoLineListItem):
-    pass
+                        MDLabel:
+                            id: remaining_label
+                            text: "Remaining  $0.00"
+                            font_style: "Subtitle2"
+                            theme_text_color: "Custom"
+                            text_color: app.accent_color
+                            adaptive_height: True
 
-class SalaryDialog(MDBoxLayout):
-    pass
+                        MDLabel:
+                            id: spent_label
+                            text: "Spent  $0.00"
+                            font_style: "Subtitle2"
+                            halign: "right"
+                            theme_text_color: "Custom"
+                            text_color: 1, 1, 1, .85
+                            adaptive_height: True
 
-class ExpenseDialog(MDBoxLayout):
-    pass
+                # ---- Add expense button ----
+                MDRaisedButton:
+                    text: "  ADD EXPENSE"
+                    icon: "plus"
+                    size_hint_x: 1
+                    size_hint_y: None
+                    height: dp(52)
+                    md_bg_color: app.accent_color
+                    font_style: "Button"
+                    on_release: app.show_expense_dialog()
+
+                # ---- Filter row ----
+                MDBoxLayout:
+                    orientation: "horizontal"
+                    size_hint_y: None
+                    height: dp(48)
+
+                    MDLabel:
+                        text: "Transactions"
+                        font_style: "Subtitle1"
+                        bold: True
+                        theme_text_color: "Custom"
+                        text_color: app.primary_color
+
+                    MDFlatButton:
+                        id: filter_button
+                        text: "All Categories"
+                        theme_text_color: "Custom"
+                        text_color: app.primary_color
+                        on_release: app.open_filter_menu(self)
+
+                MDLabel:
+                    id: empty_label
+                    text: "No transactions yet.\\nTap ADD EXPENSE to begin."
+                    halign: "center"
+                    theme_text_color: "Hint"
+                    font_style: "Body1"
+                    size_hint_y: None
+                    height: dp(120)
+
+                MDBoxLayout:
+                    id: expense_list
+                    orientation: "vertical"
+                    spacing: dp(8)
+                    size_hint_y: None
+                    height: self.minimum_height
+
+<EntryCard@MDCard>:
+    size_hint_y: None
+    height: dp(72)
+    radius: [dp(14)]
+    elevation: 1
+    md_bg_color: app.card_color
+    padding: [dp(12), dp(8)]
+    orientation: "horizontal"
+    spacing: dp(10)
+
+    MDIconButton:
+        icon: root.cat_icon
+        theme_text_color: "Custom"
+        text_color: root.cat_color
+        pos_hint: {"center_y": .5}
+        on_release: root.get_parent_window() and app.edit_entry(root.entry_index)
+
+    MDBoxLayout:
+        orientation: "vertical"
+        spacing: dp(1)
+        pos_hint: {"center_y": .5}
+
+        MDLabel:
+            text: root.entry_title
+            font_style: "Body1"
+            bold: True
+            theme_text_color: "Primary"
+            size_hint_y: None
+            height: dp(22)
+
+        MDLabel:
+            text: root.entry_sub
+            font_style: "Caption"
+            theme_text_color: "Secondary"
+            size_hint_y: None
+            height: dp(18)
+
+    MDLabel:
+        text: root.entry_amount
+        font_style: "Subtitle1"
+        bold: True
+        halign: "right"
+        valign: "center"
+        theme_text_color: "Custom"
+        text_color: root.amount_color
+        size_hint_x: None
+        width: dp(90)
+
+    MDIconButton:
+        icon: "delete-outline"
+        theme_text_color: "Custom"
+        text_color: app.text_secondary
+        pos_hint: {"center_y": .5}
+        on_release: app.delete_entry(root.entry_index)
+
+<SalaryDialogContent@MDBoxLayout>:
+    orientation: "vertical"
+    spacing: dp(12)
+    adaptive_height: True
+    size_hint_y: None
+    height: dp(160)
+
+    MDTextField:
+        id: salary_field
+        hint_text: "Monthly salary amount"
+        input_filter: "float"
+        mode: "rectangle"
+
+    MDTextField:
+        id: salary_note
+        hint_text: "Note (optional)"
+        mode: "rectangle"
+
+<ExpenseDialogContent@MDBoxLayout>:
+    orientation: "vertical"
+    spacing: dp(12)
+    adaptive_height: True
+    size_hint_y: None
+    height: dp(230)
+
+    MDTextField:
+        id: amount_field
+        hint_text: "Amount"
+        input_filter: "float"
+        mode: "rectangle"
+
+    MDTextField:
+        id: category_field
+        hint_text: "Category"
+        text: "Groceries"
+        mode: "rectangle"
+        on_focus: if self.focus: app.open_category_dropdown(self)
+
+    MDTextField:
+        id: note_field
+        hint_text: "Note (optional)"
+        mode: "rectangle"
+
+<CategoryDialogContent@MDBoxLayout>:
+    orientation: "vertical"
+    spacing: dp(12)
+    adaptive_height: True
+    size_hint_y: None
+    height: dp(160)
+
+    MDTextField:
+        id: name_field
+        hint_text: "Category name"
+        mode: "rectangle"
+
+    MDTextField:
+        id: icon_field
+        hint_text: "Icon name (e.g. cart, home, car)"
+        text: "dots-horizontal"
+        mode: "rectangle"
+"""
+
 
 class MainScreen(MDScreen):
     pass
 
-class NavigationDrawer(MDNavigationDrawer):
+
+class EntryCard(MDCard):
+    entry_index = NumericProperty(0)
+    entry_title = StringProperty("")
+    entry_sub = StringProperty("")
+    entry_amount = StringProperty("")
+    cat_icon = StringProperty("dots-horizontal")
+    cat_color = ListProperty([0.5, 0.5, 0.5, 1])
+    amount_color = ListProperty([0.1, 0.1, 0.1, 1])
+
+
+class SalaryDialogContent(MDBoxLayout):
+    pass
+
+
+class ExpenseDialogContent(MDBoxLayout):
+    pass
+
+
+class CategoryDialogContent(MDBoxLayout):
     pass
 
 
 class SahibiBudgetApp(MDApp):
-    primary_color = PRIMARY_COLOR
-    accent_color = ACCENT_COLOR
-    expense_color = EXPENSE_COLOR
-    warning_color = WARNING_COLOR
-    background_color = BACKGROUND_COLOR
-    card_color = CARD_COLOR
-    text_primary = TEXT_PRIMARY
-    text_secondary = TEXT_SECONDARY
-    text_on_primary = TEXT_ON_PRIMARY
-
     salary = NumericProperty(0.0)
-    expenses = ListProperty([])
-    categories = ListProperty([])
+    entries = ListProperty([])
     custom_categories = ListProperty([])
-    selected_category_filter = StringProperty("All")
-    theme_mode = StringProperty("Light")
+    category_filter = StringProperty("All")
 
-    salary_dialog = None
-    expense_dialog = None
-    categories_dialog = None
-    drawer = None
-    category_menu = None
+    primary_color = PRIMARY
+    accent_color = ACCENT
+    danger_color = DANGER
+    warn_color = WARN
+    bg_color = BG
+    card_color = CARD
+    text_secondary = "#7F8C8D"
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.salary_dialog = None
+        self.expense_dialog = None
+        self.category_dialog = None
+        self.category_menu = None
+        self.filter_menu = None
+        self.main_menu = None
+        self._editing_index = None
 
     def build(self):
-        self.theme_cls.primary_palette = "Teal"
-        self.theme_cls.accent_palette = "Green"
+        self.theme_cls.primary_palette = "BlueGrey"
+        self.theme_cls.material_style = "M3"
         self.theme_cls.theme_style = "Light"
         self.load_data()
-        self.categories = DEFAULT_CATEGORIES + self.custom_categories
         return Builder.load_string(KV)
 
     def on_start(self):
-        Clock.schedule_once(lambda dt: self.update_ui(), 0.1)
-        Clock.schedule_once(lambda dt: self.build_category_chips(), 0.2)
+        self.refresh()
 
-    def get_data_path(self):
-        from kivy.utils import platform
-        if platform == 'android':
-            from android.storage import app_storage_path
-            return os.path.join(app_storage_path(), 'budget_data.json')
-        return os.path.join(self.user_data_dir, 'budget_data.json')
+    # ---------------- categories ----------------
+
+    @property
+    def categories(self):
+        return DEFAULT_CATEGORIES + self.custom_categories
+
+    def category_info(self, name):
+        for c in self.categories:
+            if c["name"] == name:
+                return c
+        return {"name": name, "icon": "dots-horizontal", "color": "#95A5A6"}
+
+    # ---------------- storage ----------------
+
+    def data_path(self):
+        return os.path.join(self.user_data_dir, "budget_data.json")
 
     def load_data(self):
-        path = self.get_data_path()
-        if os.path.exists(path):
-            try:
-                with open(path, 'r') as f:
-                    data = json.load(f)
-                    self.salary = data.get('salary', 0.0)
-                    self.expenses = data.get('expenses', [])
-                    self.custom_categories = data.get('custom_categories', [])
-                    self.theme_mode = data.get('theme_mode', 'Light')
-            except Exception:
-                pass
-        self.theme_cls.theme_style = self.theme_mode
+        path = self.data_path()
+        if not os.path.exists(path):
+            return
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            self.salary = float(data.get("salary", 0.0))
+            self.entries = list(data.get("entries", []))
+            self.custom_categories = list(data.get("custom_categories", []))
+        except Exception:
+            pass
 
     def save_data(self):
-        data = {
-            'salary': self.salary,
-            'expenses': self.expenses,
-            'custom_categories': self.custom_categories,
-            'theme_mode': self.theme_mode,
-        }
         try:
-            with open(self.get_data_path(), 'w') as f:
-                json.dump(data, f, indent=2)
-        except Exception as e:
-            print(f"Save error: {e}")
+            with open(self.data_path(), "w", encoding="utf-8") as f:
+                json.dump(
+                    {
+                        "salary": self.salary,
+                        "entries": self.entries,
+                        "custom_categories": self.custom_categories,
+                    },
+                    f,
+                )
+        except Exception:
+            pass
 
-    def update_ui(self):
-        self.root.ids.salary_amount_label.text = f"${self.salary:,.2f}"
-        remaining = self.get_remaining()
-        self.root.ids.remaining_label.text = f"Remaining: ${remaining:,.2f}"
-        self.root.ids.remaining_label.text_color = (
-            self.accent_color if remaining >= 0 else self.expense_color
-        )
-        self.refresh_expenses_list()
+    # ---------------- totals ----------------
 
-    def get_total_expenses(self, category_filter=None):
+    def total_spent(self):
         total = 0.0
-        for exp in self.expenses:
-            if exp.get('type') == 'income':
+        for e in self.entries:
+            if self.category_filter != "All" and e.get("category") != self.category_filter:
                 continue
-            if category_filter and category_filter != "All" and exp.get('category') != category_filter:
-                continue
-            total += exp.get('amount', 0)
+            total += float(e.get("amount", 0))
         return total
 
-    def get_remaining(self):
-        return self.salary - self.get_total_expenses()
+    def remaining(self):
+        return self.salary - sum(float(e.get("amount", 0)) for e in self.entries)
 
-    def refresh_expenses_list(self):
-        expenses_list = self.root.ids.expenses_list
-        expenses_list.clear_widgets()
+    # ---------------- ui ----------------
 
-        filtered = [e for e in self.expenses if e.get('type') != 'income']
-        if self.selected_category_filter != "All":
-            filtered = [e for e in filtered if e.get('category') == self.selected_category_filter]
-
-        if not filtered:
+    def refresh(self):
+        screen = self.root
+        if not screen:
             return
+        ids = screen.ids
+        ids.salary_label.text = f"${self.salary:,.2f}"
 
-        for exp in sorted(filtered, key=lambda x: x.get('date', ''), reverse=True):
-            cat_info = self.get_category_info(exp.get('category', 'Other'))
-            item = ExpenseItem(
-                text=f"${exp['amount']:,.2f}  •  {exp['category']}",
-                secondary_text=f"{exp.get('note', 'No note')}  •  {exp.get('date', '')[:10]}",
-                on_release=lambda x, e=exp: self.show_edit_expense_dialog(e),
-            )
-            expenses_list.add_widget(item)
+        rem = self.remaining()
+        ids.remaining_label.text = f"Remaining  ${rem:,.2f}"
+        ids.remaining_label.text_color = get_color_from_hex(ACCENT if rem >= 0 else DANGER)
+        ids.spent_label.text = f"Spent  ${self.total_spent():,.2f}"
 
-    def get_category_info(self, name):
-        for cat in self.categories:
-            if cat['name'] == name:
-                return cat
-        return {"name": name, "icon": "dots-horizontal", "color": TEXT_SECONDARY}
-
-    def build_category_chips(self):
-        container = self.root.ids.category_chips_container
+        container = ids.expense_list
         container.clear_widgets()
 
-        # "All" chip
-        is_all = self.selected_category_filter == "All"
-        all_chip = CategoryChip(
-            md_bg_color=self.primary_color if is_all else self.card_color,
-        )
-        all_chip.ids.chip_text.text = "All"
-        all_chip.ids.chip_text.text_color = self.text_on_primary if is_all else self.text_primary
-        all_chip.bind(on_release=lambda x: self.set_category_filter("All"))
-        container.add_widget(all_chip)
+        visible = [
+            (i, e) for i, e in enumerate(self.entries)
+            if self.category_filter == "All" or e.get("category") == self.category_filter
+        ]
+        visible.sort(key=lambda p: p[1].get("date", ""), reverse=True)
 
-        for cat in self.categories:
-            is_selected = self.selected_category_filter == cat['name']
-            chip = CategoryChip(
-                md_bg_color=cat['color'] if is_selected else self.card_color,
+        ids.empty_label.opacity = 0 if visible else 1
+
+        for index, entry in visible:
+            info = self.category_info(entry.get("category", "Other"))
+            note = entry.get("note") or entry.get("category", "")
+            date = entry.get("date", "")[:10]
+            card = EntryCard(
+                entry_index=index,
+                entry_title=entry.get("category", "Other"),
+                entry_sub=f"{note}   ·   {date}",
+                entry_amount=f"-${float(entry.get('amount', 0)):,.2f}",
+                cat_icon=info["icon"],
+                cat_color=get_color_from_hex(info["color"]),
+                amount_color=get_color_from_hex(DANGER),
             )
-            chip.ids.chip_text.text = cat['name']
-            chip.ids.chip_text.text_color = self.text_on_primary if is_selected else self.text_primary
-            chip.bind(on_release=lambda x, c=cat['name']: self.set_category_filter(c))
-            container.add_widget(chip)
+            container.add_widget(card)
 
-    def set_category_filter(self, category):
-        self.selected_category_filter = category
-        self.build_category_chips()
-        self.refresh_expenses_list()
+    # ---------------- salary ----------------
 
     def show_salary_dialog(self):
         if not self.salary_dialog:
-            content = SalaryDialog()
+            content = SalaryDialogContent()
             self.salary_dialog = MDDialog(
                 title="Set Monthly Salary",
                 type="custom",
                 content_cls=content,
                 buttons=[
-                    MDButton(
-                        MDButtonText(text="Cancel"),
-                        style="text",
+                    MDFlatButton(
+                        text="Cancel",
                         on_release=lambda x: self.salary_dialog.dismiss(),
                     ),
-                    MDButton(
-                        MDButtonText(text="Save"),
-                        style="filled",
-                        md_bg_color=self.accent_color,
+                    MDRaisedButton(
+                        text="Save",
+                        md_bg_color=get_color_from_hex(ACCENT),
                         on_release=lambda x: self.save_salary(content),
                     ),
                 ],
             )
-        self.salary_dialog.content_cls.ids.salary_amount.text = str(self.salary) if self.salary else ""
+        content = self.salary_dialog.content_cls
+        content.ids.salary_field.text = f"{self.salary:.2f}" if self.salary else ""
+        content.ids.salary_note.text = ""
         self.salary_dialog.open()
 
     def save_salary(self, content):
         try:
-            amount = float(content.ids.salary_amount.text or 0)
-            note = content.ids.salary_note.text or ""
-            self.salary = amount
-            # Remove old income records
-            self.expenses = [e for e in self.expenses if e.get('type') != 'income']
-            self.expenses.append({
-                'amount': -amount,
-                'category': 'Salary',
-                'note': note or f"Salary - {datetime.now().strftime('%B %Y')}",
-                'date': datetime.now().isoformat(),
-                'type': 'income',
-            })
-            self.save_data()
-            self.update_ui()
-            self.salary_dialog.dismiss()
+            value = float(content.ids.salary_field.text or 0)
         except ValueError:
-            pass
+            value = 0.0
+        self.salary = value
+        self.save_data()
+        self.refresh()
+        self.salary_dialog.dismiss()
 
-    def show_expense_dialog(self, expense=None):
-        content = ExpenseDialog()
-        if expense:
-            content.ids.expense_amount.text = str(abs(expense['amount']))
-            content.ids.expense_note.text = expense.get('note', '')
-            content.ids.expense_category.text = expense.get('category', 'Other')
-        else:
-            content.ids.expense_category.text = (
-                self.selected_category_filter if self.selected_category_filter != "All" else "Other"
+    # ---------------- expenses ----------------
+
+    def show_expense_dialog(self, index=None):
+        self._editing_index = index
+
+        if not self.expense_dialog:
+            content = ExpenseDialogContent()
+            self.expense_dialog = MDDialog(
+                title="Add Expense",
+                type="custom",
+                content_cls=content,
+                buttons=[
+                    MDFlatButton(
+                        text="Cancel",
+                        on_release=lambda x: self.expense_dialog.dismiss(),
+                    ),
+                    MDRaisedButton(
+                        text="Save",
+                        md_bg_color=get_color_from_hex(ACCENT),
+                        on_release=lambda x: self.save_expense(content),
+                    ),
+                ],
             )
 
-        self.expense_dialog = MDDialog(
-            title="Add Expense" if not expense else "Edit Expense",
-            type="custom",
-            content_cls=content,
-            buttons=[
-                MDButton(
-                    MDButtonText(text="Cancel"),
-                    style="text",
-                    on_release=lambda x: self.expense_dialog.dismiss(),
-                ),
-                MDButton(
-                    MDButtonText(text="Save"),
-                    style="filled",
-                    md_bg_color=self.expense_color,
-                    on_release=lambda x: self.save_expense(content, expense),
-                ),
-            ],
-        )
+        content = self.expense_dialog.content_cls
+        content.ids.amount_field.text = ""
+        content.ids.note_field.text = ""
+        content.ids.category_field.text = "Groceries"
+
+        if index is not None and 0 <= index < len(self.entries):
+            entry = self.entries[index]
+            content.ids.amount_field.text = f"{float(entry.get('amount', 0)):.2f}"
+            content.ids.note_field.text = entry.get("note", "")
+            content.ids.category_field.text = entry.get("category", "Groceries")
+            self.expense_dialog.title = "Edit Expense"
+        else:
+            self.expense_dialog.title = "Add Expense"
+
         self.expense_dialog.open()
 
+    def save_expense(self, content):
+        try:
+            amount = float(content.ids.amount_field.text or 0)
+        except ValueError:
+            return
+        if amount <= 0:
+            return
+
+        category = content.ids.category_field.text or "Other"
+        note = content.ids.note_field.text or ""
+
+        if self._editing_index is not None and 0 <= self._editing_index < len(self.entries):
+            entry = self.entries[self._editing_index]
+            entry["amount"] = amount
+            entry["category"] = category
+            entry["note"] = note
+            entry["date"] = datetime.now().isoformat()
+        else:
+            self.entries.append(
+                {
+                    "amount": amount,
+                    "category": category,
+                    "note": note,
+                    "date": datetime.now().isoformat(),
+                }
+            )
+
+        self._editing_index = None
+        self.save_data()
+        self.refresh()
+        self.expense_dialog.dismiss()
+
+    def edit_entry(self, index):
+        self.show_expense_dialog(index)
+
+    def delete_entry(self, index):
+        if 0 <= index < len(self.entries):
+            self.entries.pop(index)
+            self.save_data()
+            self.refresh()
+
+    # ---------------- dropdown menus ----------------
+
     def open_category_dropdown(self, field):
-        if self.category_menu:
-            self.category_menu.dismiss()
-        items = [{"text": cat["name"], "viewclass": "OneLineListItem", "on_release": lambda x=cat["name"]: self.set_expense_category(field, x)} for cat in self.categories]
-        from kivymd.uix.menu import MDDropdownMenu
-        self.category_menu = MDDropdownMenu(caller=field, items=items, width_mult=4)
+        items = [
+            {
+                "text": c["name"],
+                "leading_icon": c["icon"],
+                "viewclass": "OneLineListItem",
+                "on_release": lambda name=c["name"]: self.pick_category(name),
+            }
+            for c in self.categories
+        ]
+        items.append(
+            {
+                "text": "+ New category",
+                "leading_icon": "plus-circle-outline",
+                "viewclass": "OneLineListItem",
+                "on_release": self.open_new_category_from_dropdown,
+            }
+        )
+        self.category_menu = MDDropdownMenu(
+            caller=field,
+            items=items,
+            width_mult=4,
+        )
         self.category_menu.open()
 
-    def set_expense_category(self, field, category_name):
-        field.text = category_name
-        field.focus = False
+    def pick_category(self, name):
+        if self.expense_dialog:
+            self.expense_dialog.content_cls.ids.category_field.text = name
         if self.category_menu:
             self.category_menu.dismiss()
 
-    def save_expense(self, content, editing_expense=None):
-        try:
-            amount = float(content.ids.expense_amount.text or 0)
-            note = content.ids.expense_note.text or ""
-            category = content.ids.expense_category.text or "Other"
+    def open_new_category_from_dropdown(self):
+        if self.category_menu:
+            self.category_menu.dismiss()
+        Clock.schedule_once(lambda dt: self.show_category_dialog(), 0.2)
 
-            if editing_expense:
-                editing_expense['amount'] = amount
-                editing_expense['note'] = note
-                editing_expense['category'] = category
-                editing_expense['date'] = datetime.now().isoformat()
-            else:
-                self.expenses.append({
-                    'amount': amount,
-                    'category': category,
-                    'note': note,
-                    'date': datetime.now().isoformat(),
-                    'type': 'expense',
-                })
+    def open_filter_menu(self, button):
+        names = ["All"] + [c["name"] for c in self.categories]
+        items = [
+            {
+                "text": n,
+                "viewclass": "OneLineListItem",
+                "on_release": lambda name=n: self.pick_filter(name),
+            }
+            for n in names
+        ]
+        self.filter_menu = MDDropdownMenu(caller=button, items=items, width_mult=4)
+        self.filter_menu.open()
 
-            self.save_data()
-            self.update_ui()
-            self.expense_dialog.dismiss()
-        except ValueError:
-            pass
-
-    def show_edit_expense_dialog(self, expense):
-        self.show_expense_dialog(expense)
-
-    def show_categories_manager(self):
-        if self.categories_dialog:
-            self.categories_dialog.dismiss()
-        content = MDBoxLayout(orientation="vertical", spacing=dp(10), padding=dp(10), adaptive_height=True)
-        add_btn = MDButton(
-            MDButtonText(text="+ Add New Category"),
-            style="filled",
-            md_bg_color=self.accent_color,
-            on_release=lambda x: self.show_add_category_dialog(),
+    def pick_filter(self, name):
+        self.category_filter = name
+        self.root.ids.filter_button.text = (
+            "All Categories" if name == "All" else name
         )
-        content.add_widget(add_btn)
+        if self.filter_menu:
+            self.filter_menu.dismiss()
+        self.refresh()
 
-        self.categories_list = MDBoxLayout(orientation="vertical", spacing=dp(5), adaptive_height=True)
-        content.add_widget(self.categories_list)
-        self.refresh_categories_list()
+    # ---------------- categories manager ----------------
 
-        self.categories_dialog = MDDialog(
-            title="Manage Categories",
-            type="custom",
-            content_cls=content,
-            buttons=[
-                MDButton(
-                    MDButtonText(text="Close"),
-                    style="text",
-                    on_release=lambda x: self.categories_dialog.dismiss(),
-                ),
-            ],
-        )
-        self.categories_dialog.open()
+    def show_category_dialog(self):
+        if not self.category_dialog:
+            content = CategoryDialogContent()
+            self.category_dialog = MDDialog(
+                title="New Category",
+                type="custom",
+                content_cls=content,
+                buttons=[
+                    MDFlatButton(
+                        text="Cancel",
+                        on_release=lambda x: self.category_dialog.dismiss(),
+                    ),
+                    MDRaisedButton(
+                        text="Add",
+                        md_bg_color=get_color_from_hex(ACCENT),
+                        on_release=lambda x: self.add_category(content),
+                    ),
+                ],
+            )
+        content = self.category_dialog.content_cls
+        content.ids.name_field.text = ""
+        content.ids.icon_field.text = "dots-horizontal"
+        self.category_dialog.open()
 
-    def refresh_categories_list(self):
-        if not hasattr(self, 'categories_list'):
+    def add_category(self, content):
+        name = (content.ids.name_field.text or "").strip()
+        icon = (content.ids.icon_field.text or "").strip() or "dots-horizontal"
+        if not name:
             return
-        self.categories_list.clear_widgets()
-        for cat in self.categories:
-            is_custom = cat in self.custom_categories
-            item = MDBoxLayout(orientation="horizontal", spacing=dp(10), size_hint_y=None, height=dp(50), padding=[dp(10), dp(5)])
-            item.add_widget(MDIconButton(
-                icon=cat['icon'],
-                theme_text_color="Custom",
-                text_color=cat['color'],
-            ))
-            item.add_widget(MDLabel(
-                text=cat['name'],
-                theme_text_color="Primary",
-                bold=True,
-            ))
-            if is_custom:
-                item.add_widget(MDIconButton(
-                    icon="delete",
-                    theme_text_color="Custom",
-                    text_color=self.expense_color,
-                    on_release=lambda x, c=cat: self.delete_category(c),
-                ))
-            self.categories_list.add_widget(item)
-
-    def show_add_category_dialog(self):
-        content = MDBoxLayout(orientation="vertical", spacing=dp(15), padding=dp(20), adaptive_height=True)
-        name_field = MDTextField(hint_text="Category name", helper_text="e.g., Rent", helper_text_mode="on_focus")
-        icon_field = MDTextField(hint_text="Icon name", helper_text="e.g., cart, flash, home", helper_text_mode="on_focus", text="dots-horizontal")
-        content.add_widget(name_field)
-        content.add_widget(icon_field)
-
-        dialog = MDDialog(
-            title="Add Category",
-            type="custom",
-            content_cls=content,
-            buttons=[
-                MDButton(MDButtonText(text="Cancel"), style="text", on_release=lambda x: dialog.dismiss()),
-                MDButton(
-                    MDButtonText(text="Add"),
-                    style="filled",
-                    md_bg_color=self.accent_color,
-                    on_release=lambda x: self.add_category(name_field.text, icon_field.text, dialog),
-                ),
-            ],
+        if name in [c["name"] for c in self.categories]:
+            return
+        palette = ["#E74C3C", "#F39C12", "#3498DB", "#9B59B6", "#1ABC9C", "#FF5722"]
+        self.custom_categories.append(
+            {
+                "name": name,
+                "icon": icon,
+                "color": palette[len(self.custom_categories) % len(palette)],
+            }
         )
-        dialog.open()
-
-    def add_category(self, name, icon, dialog):
-        name = name.strip()
-        icon = icon.strip() or "dots-horizontal"
-        if name and name not in [c['name'] for c in self.categories]:
-            new_cat = {"name": name, "icon": icon, "color": "#3498DB"}
-            self.custom_categories.append(new_cat)
-            self.categories.append(new_cat)
-            self.save_data()
-            self.refresh_categories_list()
-            self.build_category_chips()
-            dialog.dismiss()
-
-    def delete_category(self, category):
-        if category in self.custom_categories:
-            self.custom_categories.remove(category)
-            self.categories.remove(category)
-            for exp in self.expenses:
-                if exp.get('category') == category['name']:
-                    exp['category'] = "Other"
-            self.save_data()
-            self.refresh_categories_list()
-            self.build_category_chips()
-            self.refresh_expenses_list()
-
-    def reset_month(self):
-        dialog = MDDialog(
-            title="Reset Month?",
-            text="This will clear all expenses and salary for a fresh start.",
-            buttons=[
-                MDButton(MDButtonText(text="Cancel"), style="text", on_release=lambda x: dialog.dismiss()),
-                MDButton(
-                    MDButtonText(text="Reset"),
-                    style="filled",
-                    md_bg_color=self.expense_color,
-                    on_release=lambda x: self.confirm_reset(dialog),
-                ),
-            ],
-        )
-        dialog.open()
-
-    def confirm_reset(self, dialog):
-        self.salary = 0.0
-        self.expenses = []
         self.save_data()
-        self.update_ui()
+        self.category_dialog.dismiss()
+        if self.expense_dialog:
+            self.expense_dialog.content_cls.ids.category_field.text = name
+
+    # ---------------- app menu ----------------
+
+    def open_menu(self):
+        items = [
+            {
+                "text": "Manage categories",
+                "leading_icon": "shape-outline",
+                "viewclass": "OneLineListItem",
+                "on_release": lambda: (self.main_menu.dismiss(), self.show_category_dialog()),
+            },
+            {
+                "text": "Reset this month",
+                "leading_icon": "refresh",
+                "viewclass": "OneLineListItem",
+                "on_release": lambda: (self.main_menu.dismiss(), self.confirm_reset()),
+            },
+        ]
+        self.main_menu = MDDropdownMenu(
+            caller=self.root.ids.get("toolbar", None) or self.root,
+            items=items,
+            width_mult=4,
+        )
+        if self.main_menu.caller is None:
+            self.menu_dismiss = None
+            return
+        self.main_menu.open()
+
+    def confirm_reset(self):
+        dialog = MDDialog(
+            title="Reset month?",
+            text="This clears the salary and every transaction.",
+            buttons=[
+                MDFlatButton(text="Cancel", on_release=lambda x: dialog.dismiss()),
+                MDRaisedButton(
+                    text="Reset",
+                    md_bg_color=get_color_from_hex(DANGER),
+                    on_release=lambda x: self.do_reset(dialog),
+                ),
+            ],
+        )
+        dialog.open()
+
+    def do_reset(self, dialog):
+        self.salary = 0.0
+        self.entries = []
+        self.category_filter = "All"
+        if self.root:
+            self.root.ids.filter_button.text = "All Categories"
+        self.save_data()
+        self.refresh()
         dialog.dismiss()
 
-    def show_drawer(self):
-        if not self.drawer:
-            self.drawer = NavigationDrawer()
-        self.drawer.set_state("open")
 
-    def close_drawer(self):
-        if self.drawer:
-            self.drawer.set_state("close")
-
-    def show_settings(self):
-        pass
-
-    def show_statistics(self):
-        pass
-
-    def toggle_theme(self):
-        self.theme_mode = "Dark" if self.theme_mode == "Light" else "Light"
-        self.theme_cls.theme_style = self.theme_mode
-        self.save_data()
-
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     SahibiBudgetApp().run()
