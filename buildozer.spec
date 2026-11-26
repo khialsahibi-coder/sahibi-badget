@@ -48,7 +48,7 @@ fullscreen = 0
 android.permissions = INTERNET,ACCESS_NETWORK_STATE,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE,FOREGROUND_SERVICE,FOREGROUND_SERVICE_TYPE_DOWNLOAD
 
 # (int) Android API to use
-android.api = 33
+# android.api = 33
 
 # (int) Minimum API required (8 = Android 2.2 devices)
 android.minapi = 21
